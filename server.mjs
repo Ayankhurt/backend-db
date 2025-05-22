@@ -8,11 +8,7 @@ const PORT = process.env.PORT || 3000;
 const app = express();
 
 app.use(express.json());
-app.use(cors({
-    origin: '*',  // Be more specific in production
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type']
-}));
+app.use(cors());
 
 // Add a health check endpoint
 app.get('/health', (req, res) => {
