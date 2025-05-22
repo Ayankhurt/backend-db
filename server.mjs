@@ -10,19 +10,28 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Add test endpoint
+// Add test endpoint with more details
 app.get('/test-db', async (req, res) => {
     try {
+        console.log('Environment Variables:', {
+            DB_HOST: process.env.DB_HOST,
+            DB_NAME: process.env.DB_NAME,
+            DB_PORT: process.env.DB_PORT,
+            DB_USERS: process.env.DB_USERS,
+            NODE_ENV: process.env.NODE_ENV
+        });
+        
         // Test the database connection
         const testResult = await db.query('SELECT NOW()');
         res.json({
             message: "Database connection successful",
             time: testResult.rows[0],
-            dbConfig: {
-                host: process.env.DB_HOST,
-                database: process.env.DB_NAME,
-                port: process.env.DB_PORT,
-                user: process.env.DB_USERS,
+            environment: process.env.NODE_ENV,
+            connection: {
+                host: process.env.DB_HOST || 'not set',
+                database: process.env.DB_NAME || 'not set',
+                port: process.env.DB_PORT || 'not set',
+                user: process.env.DB_USERS || 'not set'
             }
         });
     } catch (error) {
@@ -30,7 +39,14 @@ app.get('/test-db', async (req, res) => {
         res.status(500).json({
             error: "Database connection failed",
             message: error.message,
-            code: error.code
+            code: error.code,
+            environment: process.env.NODE_ENV,
+            connection: {
+                host: process.env.DB_HOST || 'not set',
+                database: process.env.DB_NAME || 'not set',
+                port: process.env.DB_PORT || 'not set',
+                user: process.env.DB_USERS || 'not set'
+            }
         });
     }
 });
