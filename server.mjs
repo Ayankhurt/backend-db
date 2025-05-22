@@ -10,6 +10,32 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// Add test endpoint
+app.get('/test-db', async (req, res) => {
+    try {
+        // Test the database connection
+        const testResult = await db.query('SELECT NOW()');
+        res.json({
+            message: "Database connection successful",
+            time: testResult.rows[0],
+            dbConfig: {
+                host: process.env.DB_HOST,
+                database: process.env.DB_NAME,
+                port: process.env.DB_PORT,
+                user: process.env.DB_USERS,
+                // Don't send password
+            }
+        });
+    } catch (error) {
+        console.error('Database connection error:', error);
+        res.status(500).json({
+            error: "Database connection failed",
+            message: error.message,
+            code: error.code
+        });
+    }
+});
+
 app.get('/', (req, res) => {
     console.log("Hello World")
 });
