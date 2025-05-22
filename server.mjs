@@ -23,7 +23,6 @@ app.get('/test-db', async (req, res) => {
                 database: process.env.DB_NAME,
                 port: process.env.DB_PORT,
                 user: process.env.DB_USERS,
-                // Don't send password
             }
         });
     } catch (error) {
@@ -37,41 +36,71 @@ app.get('/test-db', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    console.log("Hello World")
+    res.json({ message: "Server is running" });
 });
+
+// Wrap database queries with timeout
+const queryWithTimeout = async (queryFn, timeout = 5000) => {
+    return Promise.race([
+        queryFn(),
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Database operation timed out')), timeout)
+        )
+    ]);
+};
 
 app.get('/products', async (req, res) => {
     try {
-        const result = await db.query('SELECT * FROM products ORDER BY created_at DESC');
+        const result = await queryWithTimeout(async () => {
+            return await db.query('SELECT * FROM products ORDER BY created_at DESC');
+        });
         res.json({ product_list: result.rows });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Database error" });
+        console.error('Error fetching products:', error);
+        res.status(error.message.includes('timed out') ? 504 : 500)
+            .json({ error: error.message || "Database error" });
     }
 });
 
 app.post('/product', async (req, res) => {
     const { name, price, description } = req.body;
     try {
-        await db.query(
-            'INSERT INTO products (name, price, description, created_at) VALUES ($1, $2, $3, NOW())',
-            [name, price, description]
-        );
-        res.json({ message: 'Product added' });
+        const result = await queryWithTimeout(async () => {
+            return await db.query(
+                'INSERT INTO products (name, price, description, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *',
+                [name, price, description]
+            );
+        });
+        res.json({ 
+            message: 'Product added',
+            product: result.rows[0]
+        });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Database error" });
+        console.error('Error adding product:', error);
+        res.status(error.message.includes('timed out') ? 504 : 500)
+            .json({ error: error.message || "Database error" });
     }
 });
 
 app.delete('/product/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        await db.query('DELETE FROM products WHERE id = $1', [id]);
-        res.json({ message: 'Product deleted' });
+        const result = await queryWithTimeout(async () => {
+            return await db.query('DELETE FROM products WHERE id = $1 RETURNING *', [id]);
+        });
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+        
+        res.json({ 
+            message: 'Product deleted',
+            product: result.rows[0]
+        });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Database error" });
+        console.error('Error deleting product:', error);
+        res.status(error.message.includes('timed out') ? 504 : 500)
+            .json({ error: error.message || "Database error" });
     }
 });
 
@@ -79,14 +108,25 @@ app.put('/product/:id', async (req, res) => {
     const { id } = req.params;
     const { name, price, description } = req.body;
     try {
-        await db.query(
-            'UPDATE products SET name = $1, price = $2, description = $3 WHERE id = $4',
-            [name, price, description, id]
-        );
-        res.json({ message: 'Product updated' });
+        const result = await queryWithTimeout(async () => {
+            return await db.query(
+                'UPDATE products SET name = $1, price = $2, description = $3 WHERE id = $4 RETURNING *',
+                [name, price, description, id]
+            );
+        });
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+        
+        res.json({ 
+            message: 'Product updated',
+            product: result.rows[0]
+        });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Database error" });
+        console.error('Error updating product:', error);
+        res.status(error.message.includes('timed out') ? 504 : 500)
+            .json({ error: error.message || "Database error" });
     }
 });
 

@@ -11,8 +11,27 @@ const pool = new Pool({
   port: process.env.DB_PORT,
   ssl: isProduction ? {
     rejectUnauthorized: false
-  } : false
+  } : false,
+  max: 5,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+  maxUses: 7500
 })
+
+// Keep connection alive
+const keepAlive = async () => {
+  try {
+    await pool.query('SELECT 1');
+    console.log('Connection keep-alive successful');
+  } catch (err) {
+    console.error('Keep-alive error:', err);
+  }
+};
+
+// Run keep-alive every 60 seconds if in production
+if (isProduction) {
+  setInterval(keepAlive, 60000);
+}
 
 // Test the database connection
 pool.on('error', (err) => {
