@@ -7,7 +7,9 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+    origin: 'https://db-fronted.vercel.app/', // Replace with your frontend domain
+}));
 
 
 app.get('/', (req, res) => {
