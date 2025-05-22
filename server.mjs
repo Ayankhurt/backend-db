@@ -1,151 +1,85 @@
-import express from "express";
-import { db } from "./db.js";
-import 'dotenv/config'
+import express from 'express';
+import { db } from './db.js';
 import cors from 'cors';
-
-const PORT = 3000;
+import 'dotenv/config';
 
 const app = express();
+const PORT = 3000;
 
 app.use(express.json());
 app.use(cors());
-
-// Add test endpoint with more details
-app.get('/test-db', async (req, res) => {
-    try {
-        console.log('Environment Variables:', {
-            DB_HOST: process.env.DB_HOST,
-            DB_NAME: process.env.DB_NAME,
-            DB_PORT: process.env.DB_PORT,
-            DB_USERS: process.env.DB_USERS,
-            NODE_ENV: process.env.NODE_ENV
-        });
-        
-        // Test the database connection
-        const testResult = await db.query('SELECT NOW()');
-        res.json({
-            message: "Database connection successful",
-            time: testResult.rows[0],
-            environment: process.env.NODE_ENV,
-            connection: {
-                host: process.env.DB_HOST || 'not set',
-                database: process.env.DB_NAME || 'not set',
-                port: process.env.DB_PORT || 'not set',
-                user: process.env.DB_USERS || 'not set'
-            }
-        });
-    } catch (error) {
-        console.error('Database connection error:', error);
-        res.status(500).json({
-            error: "Database connection failed",
-            message: error.message,
-            code: error.code,
-            environment: process.env.NODE_ENV,
-            connection: {
-                host: process.env.DB_HOST || 'not set',
-                database: process.env.DB_NAME || 'not set',
-                port: process.env.DB_PORT || 'not set',
-                user: process.env.DB_USERS || 'not set'
-            }
-        });
-    }
-});
 
 app.get('/', (req, res) => {
     res.json({ message: "Server is running" });
 });
 
-// Wrap database queries with timeout
-const queryWithTimeout = async (queryFn, timeout = 5000) => {
-    return Promise.race([
-        queryFn(),
-        new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Database operation timed out')), timeout)
-        )
-    ]);
-};
-
 app.get('/products', async (req, res) => {
     try {
-        const result = await queryWithTimeout(async () => {
-            return await db.query('SELECT * FROM products ORDER BY created_at DESC');
-        });
-        res.json({ product_list: result.rows });
+        let result = await db.query('SELECT * FROM products ORDER BY created_at DESC');
+        res.status(200).send({ message: "Product Found", product_list: result.rows })
     } catch (error) {
-        console.error('Error fetching products:', error);
-        res.status(error.message.includes('timed out') ? 504 : 500)
-            .json({ error: error.message || "Database error" });
+        console.log("error", error)
+        res.status(500).send({ message: "Internal Server Error" })
     }
-});
+})
 
 app.post('/product', async (req, res) => {
-    const { name, price, description } = req.body;
-    try {
-        const result = await queryWithTimeout(async () => {
-            return await db.query(
-                'INSERT INTO products (name, price, description, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *',
-                [name, price, description]
-            );
-        });
-        res.json({ 
-            message: 'Product added',
-            product: result.rows[0]
-        });
-    } catch (error) {
-        console.error('Error adding product:', error);
-        res.status(error.message.includes('timed out') ? 504 : 500)
-            .json({ error: error.message || "Database error" });
+    let reqBody = req.body;
+    if (!reqBody.name || !reqBody.price || !reqBody.description) {
+        res.status(400).send({ message: "Required Parameter Missing" })
+        return;
     }
-});
+    try {
+        let result = await db.query(
+            'INSERT INTO products (name, price, description) VALUES ($1, $2, $3) RETURNING *',
+            [reqBody.name, reqBody.price, reqBody.description]
+        );
+        res.status(201).send({ message: "Product Added", product: result.rows[0] })
+    } catch (error) {
+        console.error("Error adding product:", error);
+        res.status(500).send({ message: "Internal Server Error" })
+    }
+})
 
 app.delete('/product/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        const result = await queryWithTimeout(async () => {
-            return await db.query('DELETE FROM products WHERE id = $1 RETURNING *', [id]);
-        });
-        
+        const result = await db.query(
+            'DELETE FROM products WHERE id = $1 RETURNING *',
+            [id]
+        );
         if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Product not found' });
+            return res.status(404).send({ message: "Product not found" });
         }
-        
-        res.json({ 
-            message: 'Product deleted',
-            product: result.rows[0]
-        });
+        res.status(200).send({ message: "Product Deleted", product: result.rows[0] })
     } catch (error) {
-        console.error('Error deleting product:', error);
-        res.status(error.message.includes('timed out') ? 504 : 500)
-            .json({ error: error.message || "Database error" });
+        console.error("Error deleting product:", error);
+        res.status(500).send({ message: "Internal Server Error" })
     }
 });
 
 app.put('/product/:id', async (req, res) => {
     const { id } = req.params;
-    const { name, price, description } = req.body;
+    let reqBody = req.body;
+    if (!reqBody.name || !reqBody.price || !reqBody.description) {
+        res.status(400).send({ message: "Required Parameter Missing" })
+        return;
+    }
     try {
-        const result = await queryWithTimeout(async () => {
-            return await db.query(
-                'UPDATE products SET name = $1, price = $2, description = $3 WHERE id = $4 RETURNING *',
-                [name, price, description, id]
-            );
-        });
-        
+        const result = await db.query(
+            'UPDATE products SET name = $1, price = $2, description = $3 WHERE id = $4 RETURNING *',
+            [reqBody.name, reqBody.price, reqBody.description, id]
+        );
         if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Product not found' });
+            return res.status(404).send({ message: "Product not found" });
         }
-        
-        res.json({ 
-            message: 'Product updated',
-            product: result.rows[0]
-        });
+        res.status(200).send({ message: "Product Updated", product: result.rows[0] })
     } catch (error) {
         console.error('Error updating product:', error);
-        res.status(error.message.includes('timed out') ? 504 : 500)
-            .json({ error: error.message || "Database error" });
+        res.status(500).send({ message: "Internal Server Error" })
     }
 });
 
 app.listen(PORT, () => {
-    console.log(`Server is running on PORT ${PORT}`);
+    console.log("Server is Running")
 });
