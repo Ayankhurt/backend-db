@@ -27,9 +27,6 @@ app.get('/products', async (req, res) => {
     try {
         const result = await Promise.race([
             db.query('SELECT * FROM products ORDER BY created_at DESC'),
-            new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Database timeout')), 8000)
-            )
         ]);
         res.json({ product_list: result.rows });
     } catch (error) {
@@ -46,9 +43,6 @@ app.post('/product', async (req, res) => {
                 'INSERT INTO products (name, price, description, created_at) VALUES ($1, $2, $3, NOW())',
                 [name, price, description]
             ),
-            new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Database timeout')), 8000)
-            )
         ]);
         res.json({ message: 'Product added' });
     } catch (error) {
@@ -62,9 +56,6 @@ app.delete('/product/:id', async (req, res) => {
     try {
         const result = await Promise.race([
             db.query('DELETE FROM products WHERE id = $1', [id]),
-            new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Database timeout')), 8000)
-            )
         ]);
         res.json({ message: 'Product deleted' });
     } catch (error) {
@@ -82,9 +73,6 @@ app.put('/product/:id', async (req, res) => {
                 'UPDATE products SET name = $1, price = $2, description = $3 WHERE id = $4',
                 [name, price, description, id]
             ),
-            new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Database timeout')), 8000)
-            )
         ]);
         res.json({ message: 'Product updated' });
     } catch (error) {
