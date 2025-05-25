@@ -6,11 +6,14 @@ import 'dotenv/config';
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+// Configure CORS
 app.use(cors({
-    origin: 'https://db-fronted.vercel.app/', // Replace with your frontend domain
+    origin: ['https://db-fronted.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true
 }));
 
+app.use(express.json());
 
 app.get('/', (req, res) => {
     res.json({ message: "Server is running" });
@@ -84,6 +87,7 @@ app.put('/product/:id', async (req, res) => {
         });
     }
 });
+
 app.listen(PORT, () => {
     console.log("Server is Running on port", PORT);
 });
