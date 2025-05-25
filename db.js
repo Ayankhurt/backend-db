@@ -1,7 +1,7 @@
 import { Pool } from "pg"
 import 'dotenv/config'
 
-export const pool = new Pool({
+const db = new Pool({
   user: process.env.DB_USERS,
   host: process.env.DB_HOST,
   database: process.env.DB_NAME,
@@ -11,4 +11,4 @@ export const pool = new Pool({
     rejectUnauthorized: false
   }
 })
-//end
+export default db;
