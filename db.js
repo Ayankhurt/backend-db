@@ -8,7 +8,7 @@ const db = new Pool({
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
   ssl: {
-    rejectUnauthorized: false
-  }
+    rejectUnauthorized: false, // Disable cert verification (fine for Neon/dev)
+},
 })
 export default db;

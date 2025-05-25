@@ -4,14 +4,9 @@ import cors from 'cors';
 import 'dotenv/config';
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Configure CORS
-app.use(cors({
-    origin: ['https://db-fronted.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true
-}));
+app.use(cors());
 
 app.use(express.json());
 
@@ -21,32 +16,41 @@ app.get('/', (req, res) => {
 
 app.get('/products', async (req, res) => {
     try {
-        let result = await db.query('SELECT * FROM products ORDER BY created_at DESC');
-        res.status(200).send({ message: "Products Found", product_list: result.rows })
+        const result = await db.query('SELECT * FROM products ORDER BY created_at DESC');
+        res.status(200).json({ 
+            message: "Products Found", 
+            product_list: result.rows 
+        });
     } catch (error) {
-        res.status(500).send({ 
-            message: "Internal Server Error",
-            details: error.message
+        console.error('Database error:', error);
+        res.status(500).json({ 
+            message: "Database Error", 
+            error: error.message 
         });
     }
 });
 
 app.post('/product', async (req, res) => {
-    let reqBody = req.body;
-    if (!reqBody.name || !reqBody.price || !reqBody.description) {
-        res.status(400).send({ message: "Required Parameter Missing" })
-        return;
+    const { name, price, description } = req.body;
+    
+    if (!name || !price || !description) {
+        return res.status(400).json({ message: "Required Parameter Missing" });
     }
+
     try {
-        let result = await db.query(
+        const result = await db.query(
             'INSERT INTO products (name, price, description, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *',
-            [reqBody.name, reqBody.price, reqBody.description]
+            [name, price, description]
         );
-        res.status(201).send({ message: "Product Added", product: result.rows[0] })
+        res.status(201).json({ 
+            message: "Product Added", 
+            product: result.rows[0] 
+        });
     } catch (error) {
-        res.status(500).send({ 
-            message: "Internal Server Error",
-            details: error.message
+        console.error('Database error:', error);
+        res.status(500).json({ 
+            message: "Database Error", 
+            error: error.message 
         });
     }
 });
@@ -58,36 +62,55 @@ app.delete('/product/:id', async (req, res) => {
             'DELETE FROM products WHERE id = $1 RETURNING *',
             [id]
         );
-        res.status(200).send({ message: "Product Deleted", product: result.rows[0] })
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: "Product not found" });
+        }
+
+        res.status(200).json({ 
+            message: "Product Deleted", 
+            product: result.rows[0] 
+        });
     } catch (error) {
-        res.status(500).send({ 
-            message: "Internal Server Error",
-            details: error.message
+        console.error('Database error:', error);
+        res.status(500).json({ 
+            message: "Database Error", 
+            error: error.message 
         });
     }
 });
 
 app.put('/product/:id', async (req, res) => {
     const { id } = req.params;
-    let reqBody = req.body;
-    if (!reqBody.name || !reqBody.price || !reqBody.description) {
-        res.status(400).send({ message: "Required Parameter Missing" })
-        return;
+    const { name, price, description } = req.body;
+
+    if (!name || !price || !description) {
+        return res.status(400).json({ message: "Required Parameter Missing" });
     }
+
     try {
         const result = await db.query(
             'UPDATE products SET name = $1, price = $2, description = $3 WHERE id = $4 RETURNING *',
-            [reqBody.name, reqBody.price, reqBody.description, id]
+            [name, price, description, id]
         );
-        res.status(200).send({ message: "Product Updated", product: result.rows[0] })
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: "Product not found" });
+        }
+
+        res.status(200).json({ 
+            message: "Product Updated", 
+            product: result.rows[0] 
+        });
     } catch (error) {
-        res.status(500).send({ 
-            message: "Internal Server Error",
-            details: error.message
+        console.error('Database error:', error);
+        res.status(500).json({ 
+            message: "Database Error", 
+            error: error.message 
         });
     }
 });
 
 app.listen(PORT, () => {
-    console.log("Server is Running on port", PORT);
+    console.log(`Server is Running on port ${PORT}`);
 });
